@@ -135,9 +135,8 @@ builder.add_edge("escalate", END)
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-with SqliteSaver.from_conn_string("checkpoints.db") as checkpointer:
-    graph = builder.compile(checkpointer=checkpointer)
-
+checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
+graph = builder.compile(checkpointer=checkpointer)
 
 
 # ------------------ STREAMLIT UI ------------------
