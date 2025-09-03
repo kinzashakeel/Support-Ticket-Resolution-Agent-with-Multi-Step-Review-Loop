@@ -135,7 +135,7 @@ builder.add_edge("escalate", END)
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
+checkpointer = SqliteSaver("checkpoints.db")
 graph = builder.compile(checkpointer=checkpointer)
 
 
