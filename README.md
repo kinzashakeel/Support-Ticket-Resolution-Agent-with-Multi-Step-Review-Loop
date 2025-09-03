@@ -1,10 +1,10 @@
-Support Ticket Resolution Agent
+**Support Ticket Resolution Agent**
 
 
 This project is a Support Ticket Resolution Agent built with LangGraph and Gemini.
 It simulates how real companies handle support tickets: classify → draft → review → retry → escalate.
 
-Workflow
+*Workflow*
 
 Classify ticket into Billing, Technical, Security, or General.
 
@@ -18,14 +18,15 @@ Retry once if rejected.
 
 Escalate to human after 2 failed attempts.
 
-Setup
+*Setup*
+```bash
 git clone https://github.com/YOURNAME/support-ticket-agent.git
 cd support-ticket-agent
 python -m venv venv
 venv\Scripts\activate    # Windows
 source venv/bin/activate # Mac/Linux
 pip install -r requirements.txt
-
+```
 
 Set API key:
 
@@ -33,8 +34,8 @@ export GEMINI_API_KEY="your-key"   # Mac/Linux
 $env:GEMINI_API_KEY="your-key"     # Windows
 
 
-Run dev server:
-
+*Run dev server*
+```bash
 python -m langgraph dev graph:app
 
 Test
