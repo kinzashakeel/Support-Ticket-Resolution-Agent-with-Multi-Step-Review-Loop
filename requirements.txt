@@ -3,3 +3,4 @@ langgraph
 langchain
 google-generativeai
 pandas
+langgraph-checkpoint-sqlite
