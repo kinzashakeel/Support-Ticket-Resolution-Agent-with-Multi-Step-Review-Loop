@@ -1,12 +1,13 @@
-import os, re, json, pandas as pd, streamlit as st
+import os, re, json, streamlit as st
 import google.generativeai as genai
+from typing import TypedDict, Dict, List
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
-from typing import TypedDict, List, Dict
 
 # ------------------ CONFIG ------------------
 if "GEMINI_API_KEY" not in st.secrets:
     st.error("Please add GEMINI_API_KEY in Streamlit secrets!")
+    st.stop()
 else:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
@@ -15,7 +16,6 @@ class TicketState(TypedDict, total=False):
     subject: str
     description: str
     category: str
-    classification_explanation: str
     retrieved_context: list
     draft_response: str
     review_result: dict
@@ -23,7 +23,7 @@ class TicketState(TypedDict, total=False):
     escalated: bool
     escalation_message: str
 
-# ------------------ MOCK KB ------------------
+# ------------------ MOCK KNOWLEDGE BASE ------------------
 KNOWLEDGE_BASE = {
     "Billing": ["Refunds require 5–7 business days.", "Invoices auto-send monthly."],
     "Technical": ["Clear cache if app crashes.", "API supports REST + GraphQL."],
@@ -31,7 +31,7 @@ KNOWLEDGE_BASE = {
     "General": ["Support is 24/7 via chat.", "Reports export as PDF/CSV."],
 }
 
-# ------------------ CLASSIFIER ------------------
+# ------------------ CLASSIFICATION NODE ------------------
 CATEGORIES = ["Billing", "Technical", "Security", "General"]
 KEYWORDS: Dict[str, List[str]] = {
     "Billing": ["refund", "invoice", "payment", "charged", "subscription"],
@@ -49,12 +49,12 @@ def classification_node(state: TicketState) -> TicketState:
     best = max(scores, key=scores.get)
     return {**state, "category": best if scores[best] > 0 else "General"}
 
-# ------------------ RETRIEVAL ------------------
+# ------------------ RETRIEVAL NODE ------------------
 def retrieval_node(state: TicketState) -> TicketState:
     ctx = KNOWLEDGE_BASE.get(state["category"], [])[:2]
     return {**state, "retrieved_context": ctx}
 
-# ------------------ GEMINI DRAFT ------------------
+# ------------------ GEMINI DRAFT NODE ------------------
 draft_model = genai.GenerativeModel("gemini-1.5-flash")
 def draft_node(state: TicketState) -> TicketState:
     ctx = "\n".join(state.get("retrieved_context", []))
@@ -66,14 +66,14 @@ Ticket:
 Category: {state['category']}
 Context: {ctx}
 
-Reply politely, professionally.
+Reply politely and professionally.
 Do NOT promise refunds directly.
 End by offering further help.
 """
     resp = draft_model.generate_content(prompt)
     return {**state, "draft_response": resp.text.strip()}
 
-# ------------------ GEMINI REVIEW ------------------
+# ------------------ GEMINI REVIEW NODE ------------------
 review_model = genai.GenerativeModel("gemini-1.5-flash")
 def reviewer_node(state: TicketState) -> TicketState:
     prompt = f"""
@@ -106,8 +106,6 @@ def escalation_node(state: TicketState) -> TicketState:
     return {**state, "escalated": True, "escalation_message": "Escalated to human after 2 fails."}
 
 # ------------------ BUILD GRAPH ------------------
-checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
-graph = builder.compile(checkpointer=checkpointer)
 builder = StateGraph(TicketState)
 
 builder.add_node("classify", classification_node)
@@ -124,26 +122,32 @@ builder.add_edge("draft", "review")
 
 def review_cond(state: TicketState):
     return "approved" if state["review_result"]["approved"] else "rejected"
-builder.add_conditional_edges("review", review_cond, {"approved": END, "rejected": "retry"})
+builder.add_conditional_edges("review", review_cond,
+    {"approved": END, "rejected": "retry"})
 
 def retry_cond(state: TicketState):
     return "fail" if state.get("attempts", 0) >= 2 else "retry"
 builder.add_edge("retry", "retrieve")
-builder.add_conditional_edges("retry", retry_cond, {"retry": "retrieve", "fail": "escalate"})
+builder.add_conditional_edges("retry", retry_cond,
+    {"retry": "retrieve", "fail": "escalate"})
+
 builder.add_edge("escalate", END)
 
+# persistent checkpoint file (important for Streamlit Cloud)
+checkpointer = SqliteSaver.from_conn_string("checkpoints.db").setup()
 graph = builder.compile(checkpointer=checkpointer)
 
 # ------------------ STREAMLIT UI ------------------
+st.set_page_config(page_title="Support Ticket Agent", layout="wide")
 st.title("🧾 Support Ticket Resolution Agent")
 
 with st.form("ticket_form"):
     subject = st.text_input("Ticket Subject")
     description = st.text_area("Ticket Description")
-    submitted = st.form_submit_button("Submit")
+    submitted = st.form_submit_button("Submit Ticket")
 
 if submitted and subject and description:
-    with st.spinner("Processing ticket..."):
+    with st.spinner("Processing..."):
         result = graph.invoke(
             {"subject": subject, "description": description},
             config={"configurable": {"thread_id": f"ticket-{hash(subject+description)}"}}
