@@ -1,6 +1,7 @@
 streamlit
-langgraph
 langchain
-google-generativeai
 pandas
-langgraph-checkpoint-sqlite
+langgraph==0.2.18
+langgraph-checkpoint-sqlite==0.1.1
+google-generativeai
+
