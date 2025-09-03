@@ -133,9 +133,12 @@ builder.add_conditional_edges("retry", retry_cond,
 
 builder.add_edge("escalate", END)
 
-# persistent checkpoint file (important for Streamlit Cloud)
-checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
-graph = builder.compile(checkpointer=checkpointer)
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+with SqliteSaver.from_conn_string("checkpoints.db") as checkpointer:
+    graph = builder.compile(checkpointer=checkpointer)
+
+
 
 # ------------------ STREAMLIT UI ------------------
 st.set_page_config(page_title="Support Ticket Agent", layout="wide")
