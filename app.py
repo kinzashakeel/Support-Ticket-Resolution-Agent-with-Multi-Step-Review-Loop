@@ -6,7 +6,7 @@ from typing import TypedDict, List, Dict
 
 # ------------------ CONFIG ------------------
 if "GEMINI_API_KEY" not in st.secrets:
-    st.error("⚠️ Please add GEMINI_API_KEY in Streamlit secrets!")
+    st.error("Please add GEMINI_API_KEY in Streamlit secrets!")
 else:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
@@ -106,7 +106,8 @@ def escalation_node(state: TicketState) -> TicketState:
     return {**state, "escalated": True, "escalation_message": "Escalated to human after 2 fails."}
 
 # ------------------ BUILD GRAPH ------------------
-checkpointer = SqliteSaver.from_conn_string(":memory:")  # in-memory SQLite
+checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
+graph = builder.compile(checkpointer=checkpointer)
 builder = StateGraph(TicketState)
 
 builder.add_node("classify", classification_node)
