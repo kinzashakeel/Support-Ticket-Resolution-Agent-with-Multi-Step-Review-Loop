@@ -143,7 +143,10 @@ with st.form("ticket_form"):
 
 if submitted and subject and description:
     with st.spinner("Processing ticket..."):
-        result = graph.invoke({"subject": subject, "description": description})
+        result = graph.invoke(
+            {"subject": subject, "description": description},
+            config={"configurable": {"thread_id": f"ticket-{hash(subject+description)}"}}
+        )
 
     st.subheader("Results")
     st.write("**Category:**", result.get("category"))
